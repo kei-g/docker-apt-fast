@@ -22,10 +22,10 @@ token=$(curl \
   -d "{\"username\":\"$DOCKERHUB_USERNAME\",\"password\":\"$DOCKERHUB_PASSWORD\"}" \
   -s \
   $hub/users/login \
-| jq .token)
+| jq -cr .token)
 
 curl \
-  -H "Authorization: JWT ${token//$'\"'/}" \
+  -H "Authorization: JWT $token" \
   -H "Content-type: application/json" \
   -L \
   -X PATCH \
