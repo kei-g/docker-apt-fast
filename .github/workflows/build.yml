@@ -13,21 +13,30 @@ jobs:
       - name: Cache Docker layers
         uses: actions/cache@v3
         with:
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
-          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-${{ matrix.base_image }}-buildx-${{ github.sha }}
+          path: /tmp/.buildx-cache-${{ matrix.base_image }}
           restore-keys: |
-            ${{ runner.os }}-buildx-
+            ${{ runner.os }}-${{ matrix.base_image }}-buildx-
+      - name: Generate Dockerfile
+        run: printf 'FROM %s\nADD install.sh /\nRUN ./install.sh\n' ${{ matrix.base_image }} > Dockerfile
       - name: Run Buildx
         uses: docker/build-push-action@v2
         with:
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+          cache-from: type=local,src=/tmp/.buildx-cache-${{ matrix.base_image }}
+          cache-to: type=local,dest=/tmp/.buildx-cache-${{ matrix.base_image }}-new,mode=max
           context: .
           push: false
       - name: Move cache
         run: |
-          rm -fr /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+          rm -fr /tmp/.buildx-cache-${{ matrix.base_image }}
+          mv /tmp/.buildx-cache-${{ matrix.base_image }}-new /tmp/.buildx-cache-${{ matrix.base_image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        base_image:
+          - debian:stable-slim
+          - ubuntu:focal
+          - ubuntu:jammy
 name: Build
 on:
   pull_request:
