@@ -1,5 +1,5 @@
 jobs:
-  docker:
+  build:
     if: github.ref_type == 'branch'
     name: Build a docker image
     runs-on: ubuntu-latest
