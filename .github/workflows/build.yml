@@ -20,7 +20,7 @@ jobs:
       - name: Generate Dockerfile
         run: printf 'FROM %s\nADD install.sh /\nRUN ./install.sh\n' ${{ matrix.base_image }} > Dockerfile
       - name: Run Buildx
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v3
         with:
           cache-from: type=local,src=/tmp/.buildx-cache-${{ matrix.base_image }}
           cache-to: type=local,dest=/tmp/.buildx-cache-${{ matrix.base_image }}-new,mode=max
