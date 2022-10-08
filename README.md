@@ -10,7 +10,7 @@
 [docker-url]:https://hub.docker.com/r/snowstep/apt-fast
 [github-build-image]:https://github.com/kei-g/docker-apt-fast/actions/workflows/build.yml/badge.svg?branch=main
 [github-build-url]:https://github.com/kei-g/docker-apt-fast/actions/workflows/build.yml?query=branch%3Amain
-[github-publish-image]:https://github.com/kei-g/docker-apt-fast/actions/workflows/publish.yml/badge.svg
-[github-publish-url]:https://github.com/kei-g/docker-apt-fast/actions/workflows/publish.yml
+[github-publish-image]:https://github.com/kei-g/docker-apt-fast/actions/workflows/publish.yml/badge.svg?branch=v1.0.3
+[github-publish-url]:https://github.com/kei-g/docker-apt-fast/actions/workflows/publish.yml?query=branch%3Av1.0.3
 [license-image]:https://img.shields.io/github/license/kei-g/docker-apt-fast
 [license-url]:https://github.com/kei-g/docker-apt-fast/blob/main/LICENSE
