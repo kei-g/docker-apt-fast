@@ -29,6 +29,7 @@ jobs:
           cache-from: type=local,src=/tmp/.buildx-cache-${{ env.cache_name }}
           cache-to: type=local,dest=/tmp/.buildx-cache-${{ env.cache_name }}-new,mode=max
           context: .
+          load: true
           push: false
       - name: Move cache
         run: |
