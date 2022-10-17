@@ -1,25 +1,66 @@
 env:
-  DOCKERHUB_USERNAME: snowstep
   IMAGE_NAME: apt-fast
 jobs:
   docker:
     if: github.ref_type == 'tag'
     name: Publish the image to DockerHub
+    needs:
+      - ubuntu
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
         with:
           fetch-depth: 1
-      - id: commit
-        name: Get commit summary
+      - id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{major}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{version}}
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          key: ${{ runner.os }}-bullseye-buildx-${{ github.sha }}
+          path: /tmp/.buildx-cache-bullseye
+          restore-keys: |
+            ${{ runner.os }}-bullseye-buildx-
+      - name: Generate Dockerfile
+        run: printf 'FROM debian:stable-slim\nADD install.sh /\nRUN ./install.sh\n' > Dockerfile
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+      - name: Run Buildx and Push it to DockerHub
+        uses: docker/build-push-action@v3
+        with:
+          cache-from: type=local,src=/tmp/.buildx-cache-bullseye
+          cache-to: type=local,dest=/tmp/.buildx-cache-bullseye-new,mode=max
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+      - name: Move cache
         run: |
-          ref=${{ github.ref }}
-          version=${ref//refs\/tags\/v/}
-          [ -z "$version" ] && exit 1
-          echo "::set-output name=MAJOR_VERSION::$(echo $version | cut -d'.' -f1)"
-          echo "::set-output name=MINOR_VERSION::$(echo $version | cut -d'.' -f-2)"
-          echo "::set-output name=VERSION::$version"
+          rm -fr /tmp/.buildx-cache-bullseye
+          mv /tmp/.buildx-cache-bullseye-new /tmp/.buildx-cache-bullseye
+      - name: Patch the description
+        run: |
+          DOCKERHUB_PASSWORD="${{ secrets.DOCKERHUB_PASSWORD }}" \
+          DOCKERHUB_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}" \
+          tools/patch-dockerhub.sh ${{ env.IMAGE_NAME }} "Debian/Ubuntu with apt-fast installed."
+  ubuntu:
+    name: Publish the ${{ matrix.base_image }} image to DockerHub
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v2
       - name: Cache Docker layers
@@ -29,22 +70,14 @@ jobs:
           path: /tmp/.buildx-cache-${{ matrix.base_image }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.base_image }}-buildx-
-      - id: tag
-        name: Decide the tag name
-        run: |
-          case $(echo ${{ matrix.base_image }} | cut -d':' -f1) in
-            debian) echo "::set-output name=NAME::bullseye";;
-            ubuntu) echo "::set-output name=NAME::$(echo ${{ matrix.base_image }} | cut -d':' -f2)";;
-          esac
       - name: Generate Dockerfile
-        run: printf 'FROM %s\nADD install.sh /\nRUN ./install.sh\n' ${{ matrix.base_image }} > Dockerfile
+        run: printf 'FROM ubuntu:%s\nADD install.sh /\nRUN ./install.sh\n' ${{ matrix.base_image }} > Dockerfile
       - name: Login to DockerHub
         uses: docker/login-action@v2
         with:
-          username: ${{ env.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
-      - if: ${{ startsWith(matrix.base_image, 'debian:') }}
-        name: Run Buildx and Push it to DockerHub
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+      - name: Run Buildx and Push it to DockerHub
         uses: docker/build-push-action@v3
         with:
           cache-from: type=local,src=/tmp/.buildx-cache-${{ matrix.base_image }}
@@ -52,39 +85,18 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:bullseye
-            ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.commit.outputs.MAJOR_VERSION }}
-            ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.commit.outputs.MINOR_VERSION }}
-            ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.commit.outputs.VERSION }}
-      - if: ${{ startsWith(matrix.base_image, 'ubuntu:') }}
-        name: Push additional tag
-        uses: docker/build-push-action@v3
-        with:
-          cache-from: type=local,src=/tmp/.buildx-cache-${{ matrix.base_image }}
-          cache-to: type=local,dest=/tmp/.buildx-cache-${{ matrix.base_image }}-new,mode=max
-          context: .
-          push: true
-          tags:
-            ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.NAME }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ matrix.base_image }}
       - name: Move cache
         run: |
           rm -fr /tmp/.buildx-cache-${{ matrix.base_image }}
           mv /tmp/.buildx-cache-${{ matrix.base_image }}-new /tmp/.buildx-cache-${{ matrix.base_image }}
-      - if: ${{ startsWith(matrix.base_image, 'debian:') }}
-        name: Patch the description
-        run: |
-          DOCKERHUB_PASSWORD="${{ secrets.DOCKERHUB_PASSWORD }}" \
-          tools/patch-dockerhub.sh ${{ env.IMAGE_NAME }} "Debian/Ubuntu with apt-fast installed."
     strategy:
-      fail-fast: false
       matrix:
         base_image:
-          - debian:stable-slim
-          - ubuntu:focal
-          - ubuntu:jammy
+          - focal
+          - jammy
 name: Publish
 on:
-  push:
+  create:
     tags:
-      - '**'
+      - v[0-9]+(\.[0-9]+)*
