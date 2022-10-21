@@ -29,8 +29,8 @@ jobs:
           path: /tmp/.buildx-cache-bullseye
           restore-keys: |
             ${{ runner.os }}-bullseye-buildx-
-      - name: Generate Dockerfile
-        run: printf 'FROM debian:stable-slim\nADD install.sh /\nRUN ./install.sh\n' > Dockerfile
+      - name: Copy Dockerfile
+        run: cp docker/linux/bullseye/Dockerfile ./
       - name: Login to DockerHub
         uses: docker/login-action@v2
         with:
@@ -54,7 +54,7 @@ jobs:
           DOCKERHUB_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}" \
           tools/patch-dockerhub.sh ${{ env.IMAGE_NAME }} "Debian/Ubuntu with apt-fast installed."
   ubuntu:
-    name: Publish the ${{ matrix.base_image }} image to DockerHub
+    name: Publish the ${{ matrix.dist }} image to DockerHub
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -66,12 +66,12 @@ jobs:
       - name: Cache Docker layers
         uses: actions/cache@v3
         with:
-          key: ${{ runner.os }}-${{ matrix.base_image }}-buildx-${{ github.sha }}
-          path: /tmp/.buildx-cache-${{ matrix.base_image }}
+          key: ${{ runner.os }}-${{ matrix.dist }}-buildx-${{ github.sha }}
+          path: /tmp/.buildx-cache-${{ matrix.dist }}
           restore-keys: |
-            ${{ runner.os }}-${{ matrix.base_image }}-buildx-
-      - name: Generate Dockerfile
-        run: printf 'FROM ubuntu:%s\nADD install.sh /\nRUN ./install.sh\n' ${{ matrix.base_image }} > Dockerfile
+            ${{ runner.os }}-${{ matrix.dist }}-buildx-
+      - name: Copy Dockerfile
+        run: cp docker/linux/${{ matrix.dist }}/Dockerfile ./
       - name: Login to DockerHub
         uses: docker/login-action@v2
         with:
@@ -80,19 +80,19 @@ jobs:
       - name: Run Buildx and Push it to DockerHub
         uses: docker/build-push-action@v3
         with:
-          cache-from: type=local,src=/tmp/.buildx-cache-${{ matrix.base_image }}
-          cache-to: type=local,dest=/tmp/.buildx-cache-${{ matrix.base_image }}-new,mode=max
+          cache-from: type=local,src=/tmp/.buildx-cache-${{ matrix.dist }}
+          cache-to: type=local,dest=/tmp/.buildx-cache-${{ matrix.dist }}-new,mode=max
           context: .
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ matrix.base_image }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ matrix.dist }}
       - name: Move cache
         run: |
-          rm -fr /tmp/.buildx-cache-${{ matrix.base_image }}
-          mv /tmp/.buildx-cache-${{ matrix.base_image }}-new /tmp/.buildx-cache-${{ matrix.base_image }}
+          rm -fr /tmp/.buildx-cache-${{ matrix.dist }}
+          mv /tmp/.buildx-cache-${{ matrix.dist }}-new /tmp/.buildx-cache-${{ matrix.dist }}
     strategy:
       matrix:
-        base_image:
+        dist:
           - focal
           - jammy
 name: Publish

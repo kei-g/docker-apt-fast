@@ -21,8 +21,8 @@ jobs:
           path: /tmp/.buildx-cache-${{ env.cache_name }}
           restore-keys: |
             ${{ runner.os }}-buildx-${{ env.cache_name }}-
-      - name: Generate Dockerfile
-        run: printf 'FROM %s\nADD install.sh /\nRUN ./install.sh\n' ${{ matrix.base_image }} > Dockerfile
+      - name: Copy Dockerfile
+        run: cp docker/linux/${{ env.cache_name }}/Dockerfile ./
       - name: Run Buildx
         uses: docker/build-push-action@v3
         with:
