@@ -7,7 +7,7 @@ IMAGES=$(docker images --filter=dangling=true --format="{{.ID}}" | xargs)
 [ -z "$IMAGES" ] || docker rmi "$IMAGES"
 
 for base_image in debian:stable-slim ubuntu:focal ubuntu:jammy; do
-	docker pull $image
+	docker pull $base_image
 	cat << _EOT_ > Dockerfile
 FROM $base_image
 ADD install.sh /
@@ -17,5 +17,5 @@ _EOT_
 		debian) docker build -t snowstep/apt-fast:bullseye .;;
 		ubuntu) docker build -t snowstep/apt-fast:$(echo $base_image | cut -d':' -f2) .;;
 	esac
-	rm -f Dockerfile
+	rm -f Dockerfile;
 done
