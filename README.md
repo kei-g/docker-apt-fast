@@ -2,7 +2,7 @@
 
 `docker-apt-fast` - Debian/Ubuntu with [apt-fast][apt-fast-url] installed.
 
-## Workflows
+## CI Status
 
 [![GitHub CI (Main)][github-main-image]][github-main-url]
 
