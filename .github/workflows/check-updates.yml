@@ -41,4 +41,4 @@ jobs:
 name: Check updates
 on:
   schedule:
-    - cron: '11 */12 * * *'
+    - cron: '55 */8 * * *'
