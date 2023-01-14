@@ -1,0 +1,44 @@
+jobs:
+  dockerhub:
+    name: See the latest images on DockerHub
+    outputs:
+      OUTDATED: ${{ steps.dockerhub.outputs.OUTDATED }}
+    runs-on: ubuntu-latest
+    steps:
+      - id: dockerhub
+        name: Compare the latest updates between base images and snowstep/apt-fast
+        run: |
+          api=https://hub.docker.com/v2/namespaces
+          timestamp=$(curl -s $api/snowstep/repositories/apt-fast/tags | jq -cr '[.results[]|select(.name=="latest").images[]]|max_by(.last_pushed).last_pushed')
+          latest_apt_fast=$(date --date=$timestamp "+%s")
+          printf 'apt-fast=%s %s\n' $timestamp $latest_apt_fast >&2
+          api=$api/library/repositories
+          timestamp=$(curl -s $api/debian/tags | jq -cr '.results[]|select(.name=="stable-slim").images[]|select(.architecture=="amd64").last_pushed')
+          latest_bullseye=$(date --date=$timestamp "+%s")
+          printf 'bullseye=%s %s\n' $timestamp $latest_bullseye >&2
+          ubuntu=$(curl -s $api/ubuntu/tags)
+          timestamp=$(echo "$ubuntu" | jq -cr '.results[]|select(.name=="18.04").images[]|select(.architecture=="amd64").last_pushed')
+          latest_focal=$(date --date=$timestamp "+%s")
+          printf 'focal=%s %s\n' $timestamp $latest_focal >&2
+          timestamp=$(echo "$ubuntu" | jq -cr '.results[]|select(.name=="latest").images[]|select(.architecture=="amd64").last_pushed')
+          latest_jammy=$(date --date=$timestamp "+%s")
+          printf 'jammy=%s %s\n' $timestamp $latest_jammy >&2
+          printf 'OUTDATED=%s\n' $([[ $latest_apt_fast < $latest_bullseye || $latest_apt_fast < $latest_focal || $latest_apt_fast < $latest_jammy ]] \
+            && printf 'true' \
+            || printf 'false' \
+          ) | tee -a $GITHUB_OUTPUT
+        shell: bash
+  publish-if-outdated:
+    name: Publish if outdated
+    needs:
+      - dockerhub
+    secrets:
+      DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+    uses: ./.github/workflows/publish.yml
+    with:
+      OUTDATED: ${{ needs.dockerhub.outputs.OUTDATED == 'true' }}
+name: Check updates
+on:
+  schedule:
+    - cron: '11 */12 * * *'
