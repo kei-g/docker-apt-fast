@@ -1,6 +1,24 @@
 jobs:
+  apt-fast:
+    name: See the latest snowstep/apt-fast on DockerHub
+    outputs:
+      timestamp: ${{ steps.dockerhub.outputs.timestamp }}
+    runs-on: ubuntu-latest
+    steps:
+      - id: dockerhub
+        run: |
+          api=https://hub.docker.com/v2/namespaces/snowstep/repositories/apt-fast/tags
+          last_pushed=$(
+            curl -s $api | jq -cr '[.results[]|select(.name=="latest").images[]]|max_by(.last_pushed).last_pushed'
+          )
+          timestamp=$(date --date=$last_pushed "+%s")
+          printf 'apt-fast: %s (%s)\n' $last_pushed $timestamp >&2
+          printf 'timestamp=%s\n' $timestamp >> $GITHUB_OUTPUT
+        shell: bash
   dockerhub:
     name: See the latest images on DockerHub
+    needs:
+      - apt-fast
     outputs:
       OUTDATED: ${{ steps.dockerhub.outputs.OUTDATED }}
     runs-on: ubuntu-latest
@@ -8,36 +26,71 @@ jobs:
       - id: dockerhub
         name: Compare the latest updates between base images and snowstep/apt-fast
         run: |
-          api=https://hub.docker.com/v2/namespaces
-          timestamp=$(curl -s $api/snowstep/repositories/apt-fast/tags | jq -cr '[.results[]|select(.name=="latest").images[]]|max_by(.last_pushed).last_pushed')
-          latest_apt_fast=$(date --date=$timestamp "+%s")
-          printf 'apt-fast=%s %s\n' $timestamp $latest_apt_fast >&2
-          api=$api/library/repositories
-          timestamp=$(curl -s $api/debian/tags | jq -cr '.results[]|select(.name=="stable-slim").images[]|select(.architecture=="amd64").last_pushed')
+          api=https://hub.docker.com/v2/namespaces/library/repositories
+          timestamp=$(
+            curl -s $api/debian/tags | jq -cr '.results[]|select(.name=="stable-slim").images[]|select(.architecture=="amd64").last_pushed'
+          )
           latest_bullseye=$(date --date=$timestamp "+%s")
           printf 'bullseye=%s %s\n' $timestamp $latest_bullseye >&2
           ubuntu=$(curl -s $api/ubuntu/tags)
-          timestamp=$(echo "$ubuntu" | jq -cr '.results[]|select(.name=="18.04").images[]|select(.architecture=="amd64").last_pushed')
+          timestamp=$(
+            echo "$ubuntu" | jq -cr '.results[]|select(.name=="18.04").images[]|select(.architecture=="amd64").last_pushed'
+          )
           latest_focal=$(date --date=$timestamp "+%s")
           printf 'focal=%s %s\n' $timestamp $latest_focal >&2
-          timestamp=$(echo "$ubuntu" | jq -cr '.results[]|select(.name=="latest").images[]|select(.architecture=="amd64").last_pushed')
+          timestamp=$(
+            echo "$ubuntu" | jq -cr '.results[]|select(.name=="latest").images[]|select(.architecture=="amd64").last_pushed'
+          )
           latest_jammy=$(date --date=$timestamp "+%s")
           printf 'jammy=%s %s\n' $timestamp $latest_jammy >&2
-          printf 'OUTDATED=%s\n' $([[ $latest_apt_fast < $latest_bullseye || $latest_apt_fast < $latest_focal || $latest_apt_fast < $latest_jammy ]] \
-            && printf 'true' \
-            || printf 'false' \
+          timestamp=${{ needs.apt-fast.outputs.timestamp }}
+          printf 'OUTDATED=%s\n' $(
+            [[ $timestamp < $latest_bullseye || $timestamp < $latest_focal || $timestamp < $latest_jammy ]] \
+              && printf 'true' \
+              || printf 'false'
+          ) | tee -a $GITHUB_OUTPUT
+        shell: bash
+  github:
+    name: See the latest timestamp on GitHub
+    needs:
+      - apt-fast
+    outputs:
+      OUTDATED: ${{ steps.github.outputs.OUTDATED }}
+    runs-on: ubuntu-latest
+    steps:
+      - id: github
+        name: Compare the latest updates between snowstep/apt-fast and this repository
+        run: |
+          owner=${{ github.repository_owner }}
+          repo=${{ github.event.repository.name }}
+          timestamp=$(
+            curl \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                -s \
+                https://api.github.com/repos/$owner/$repo/commits \
+              | jq -cr 'map(.commit.committer)|max_by(.date).date'
+          )
+          latest=$(date --date=$timestamp "+%s")
+          printf 'latest=%s (%s)\n' $timestamp $latest
+          printf 'OUTDATED=%s\n' $(
+            [[ ${{ needs.apt-fast.outputs.timestamp }} < $latest ]] \
+              && printf 'true' \
+              || printf 'false'
           ) | tee -a $GITHUB_OUTPUT
         shell: bash
   publish-if-outdated:
     name: Publish if outdated
     needs:
       - dockerhub
+      - github
     secrets:
       DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
     uses: ./.github/workflows/publish.yml
     with:
-      OUTDATED: ${{ needs.dockerhub.outputs.OUTDATED == 'true' }}
+      OUTDATED: ${{ needs.dockerhub.outputs.OUTDATED == 'true' || needs.github.outputs.OUTDATED == 'true' }}
 name: Check updates
 on:
   schedule:
