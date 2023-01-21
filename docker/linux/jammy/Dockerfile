@@ -6,6 +6,7 @@ RUN DEBIAN_FRONTEND=noninteractive \
   && apt-get install --no-install-recommends -y \
     aria2 \
     ca-certificates \
+    sudo \
   && apt-get clean \
   && rm -fr /var/lib/apt/lists/* \
   && repo=https://raw.githubusercontent.com/ilikenwf/apt-fast/master \
