@@ -16,6 +16,7 @@ jobs:
           printf 'timestamp=%s\n' $timestamp >> $GITHUB_OUTPUT
         shell: bash
   dockerhub:
+    if: github.event_name == 'schedule'
     name: See the latest images on DockerHub
     needs:
       - apt-fast
