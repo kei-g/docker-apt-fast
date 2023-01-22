@@ -95,7 +95,7 @@ jobs:
     with:
       OUTDATED: ${{ needs.dockerhub.outputs.OUTDATED == 'true' || needs.github.outputs.OUTDATED == 'true' }}
   publish-with-timestamp:
-    if: github.event_name == 'push'
+    if: github.event_name == 'workflow_dispatch'
     name: Publish with timestamp
     needs:
       - github
@@ -107,8 +107,6 @@ jobs:
       timestamp: ${{ needs.github.outputs.timestamp }}
 name: Check updates
 on:
-  push:
-    branches:
-      - main
   schedule:
     - cron: '55 */8 * * *'
+  workflow_dispatch:
