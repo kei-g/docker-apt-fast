@@ -93,5 +93,8 @@ jobs:
       OUTDATED: ${{ needs.dockerhub.outputs.OUTDATED == 'true' || needs.github.outputs.OUTDATED == 'true' }}
 name: Check updates
 on:
+  push:
+    branches:
+      - main
   schedule:
     - cron: '55 */8 * * *'
