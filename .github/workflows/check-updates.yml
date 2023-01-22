@@ -56,6 +56,7 @@ jobs:
       - apt-fast
     outputs:
       OUTDATED: ${{ steps.github.outputs.OUTDATED }}
+      timestamp: ${{ steps.github.outputs.timestamp }}
     runs-on: ubuntu-latest
     steps:
       - id: github
@@ -74,6 +75,7 @@ jobs:
           )
           latest=$(date --date=$timestamp "+%s")
           printf 'latest=%s (%s)\n' $timestamp $latest
+          printf 'timestamp=%s\n' $(date --date=$timestamp "+%Y%m%d%H%M%S") >> $GITHUB_OUTPUT
           printf 'OUTDATED=%s\n' $(
             [[ ${{ needs.apt-fast.outputs.timestamp }} < $latest ]] \
               && printf 'true' \
@@ -81,6 +83,7 @@ jobs:
           ) | tee -a $GITHUB_OUTPUT
         shell: bash
   publish-if-outdated:
+    if: github.event_name == 'schedule'
     name: Publish if outdated
     needs:
       - dockerhub
@@ -91,6 +94,17 @@ jobs:
     uses: ./.github/workflows/publish.yml
     with:
       OUTDATED: ${{ needs.dockerhub.outputs.OUTDATED == 'true' || needs.github.outputs.OUTDATED == 'true' }}
+  publish-with-timestamp:
+    if: github.event_name == 'push'
+    name: Publish with timestamp
+    needs:
+      - github
+    secrets:
+      DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+    uses: ./.github/workflows/publish-with-timestamp.yml
+    with:
+      timestamp: ${{ needs.github.outputs.timestamp }}
 name: Check updates
 on:
   push:
