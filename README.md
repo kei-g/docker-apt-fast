@@ -1,4 +1,6 @@
-# docker-apt-fast [![github][github-repo-image]][github-repo-url] [![license][license-image]][license-url] [![docker][docker-image]][docker-url]
+[![GitHub][github-repo-image]][github-repo-url] [![DockerHub][docker-image]][docker-url]
+
+# docker-apt-fast [![license][license-image]][license-url]
 
 [`docker-apt-fast`][github-repo-url] - Debian/Ubuntu with [apt-fast][apt-fast-url] installed.
 
