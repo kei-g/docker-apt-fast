@@ -26,10 +26,13 @@ jobs:
           dockerhub=${{ needs.dockerhub.outputs.timestamp }}
           count=$(
             for name in bullseye focal jammy; do
-              timestamp=$(cat $name.txt)
+              read -r timestamp < $name.txt
               echo $name=$timestamp >&2
               [[ $dockerhub -lt $timestamp ]] \
-                && { echo $name | tee >(cat >&2); } \
+                && { \
+                  echo "libraries/$name is newer than snowstep/apt-fast:$name" \
+                  | tee >(cat >&2); \
+                } \
                 || :
             done | wc -l
           )
