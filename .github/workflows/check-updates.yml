@@ -8,7 +8,7 @@ jobs:
       outdated-count: ${{ steps.newer.outputs.count }}
     runs-on: ubuntu-latest
     steps:
-      - name: Download bullseye.txt
+      - name: Download bullseye
         uses: actions/download-artifact@v3
         with:
           name: bullseye
