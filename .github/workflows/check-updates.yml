@@ -20,12 +20,16 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: jammy
+      - name: Download lunar
+        uses: actions/download-artifact@v3
+        with:
+          name: lunar
       - id: newer
         name: Count how many libraries are newer than snowstep/apt-fast
         run: |
           dockerhub=${{ needs.dockerhub.outputs.timestamp }}
           count=$(
-            for name in bullseye focal jammy; do
+            for name in bullseye focal jammy lunar; do
               read -r timestamp < $name.txt
               echo $name=$timestamp >&2
               [[ $dockerhub -lt $timestamp ]] \
@@ -88,6 +92,9 @@ jobs:
           - dist: ubuntu
             name: jammy
             tag: latest
+          - dist: ubuntu
+            name: lunar
+            tag: lunar
   publish-if-outdated:
     if: ${{ needs.apt-fast.outputs.outdated-count != 0 }}
     name: Publish if outdated
