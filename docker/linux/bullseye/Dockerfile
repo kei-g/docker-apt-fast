@@ -7,6 +7,7 @@ RUN DEBIAN_FRONTEND=noninteractive \
     aria2 \
     ca-certificates \
     sudo \
+    tzdata \
   && apt-get clean \
   && rm -fr /var/lib/apt/lists/* \
   && repo=https://raw.githubusercontent.com/ilikenwf/apt-fast/master \
