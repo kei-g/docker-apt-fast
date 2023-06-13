@@ -12,6 +12,10 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: bullseye
+      - name: Download bookworm
+        uses: actions/download-artifact@v3
+        with:
+          name: bookworm
       - name: Download focal
         uses: actions/download-artifact@v3
         with:
@@ -85,7 +89,10 @@ jobs:
         include:
           - dist: debian
             name: bullseye
-            tag: stable-slim
+            tag: bullseye
+          - dist: debian
+            name: bookworm
+            tag: bookworm
           - dist: ubuntu
             name: focal
             tag: 18.04
