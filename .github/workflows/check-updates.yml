@@ -98,7 +98,7 @@ jobs:
             tag: 18.04
           - dist: ubuntu
             name: jammy
-            tag: latest
+            tag: jammy
           - dist: ubuntu
             name: lunar
             tag: lunar
