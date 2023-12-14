@@ -9,23 +9,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download bullseye
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: bullseye
       - name: Download bookworm
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: bookworm
       - name: Download focal
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: focal
       - name: Download jammy
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: jammy
       - name: Download lunar
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: lunar
       - id: newer
