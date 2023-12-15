@@ -79,7 +79,7 @@ jobs:
           echo $timestamp > ${{ matrix.name }}.txt
         shell: bash
       - name: Upload ${{ matrix.name }}.txt
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}
           path: ${{ matrix.name }}.txt
