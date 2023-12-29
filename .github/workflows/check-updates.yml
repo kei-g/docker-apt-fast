@@ -8,38 +8,29 @@ jobs:
       outdated-count: ${{ steps.newer.outputs.count }}
     runs-on: ubuntu-latest
     steps:
-      - name: Download bullseye
+      - name: Download debian
         uses: actions/download-artifact@v4
         with:
-          name: bullseye
-      - name: Download bookworm
+          name: debian
+      - name: Download ubuntu
         uses: actions/download-artifact@v4
         with:
-          name: bookworm
-      - name: Download focal
-        uses: actions/download-artifact@v4
-        with:
-          name: focal
-      - name: Download jammy
-        uses: actions/download-artifact@v4
-        with:
-          name: jammy
-      - name: Download lunar
-        uses: actions/download-artifact@v4
-        with:
-          name: lunar
+          name: ubuntu
       - id: newer
         name: Count how many libraries are newer than snowstep/apt-fast
         run: |
           dockerhub=${{ needs.dockerhub.outputs.timestamp }}
           count=$(
-            for name in bullseye focal jammy lunar; do
-              read -r timestamp < $name.txt
+            for key in debian:bookworm debian:bullseye ubuntu:focal ubuntu:jammy ubuntu:lunar; do
+              dist=${key%%:*}
+              name=${key##*:}
+              matched=$(grep -P "^$name=" < $dist.txt)
+              timestamp=${matched##*=}
               echo $name=$timestamp >&2
               [[ $dockerhub -lt $timestamp ]] \
                 && { \
                   echo "libraries/$name is newer than snowstep/apt-fast:$name" \
-                  | tee >(cat >&2); \
+                    | tee >(cat >&2); \
                 } \
                 || :
             done | wc -l
@@ -65,43 +56,36 @@ jobs:
           printf 'timestamp=%s\n' $timestamp >> $GITHUB_OUTPUT
         shell: bash
   libraries:
-    name: See the latest ${{ matrix.dist }}:${{ matrix.tag }} on DockerHub
+    name: See ${{ matrix.dist }} on DockerHub
     runs-on: ubuntu-latest
     steps:
-      - name: Get the latest timestamp of ${{ matrix.dist }}:${{ matrix.tag }}
+      - name: Get timestamps of ${{ matrix.dist }}
         run: |
-          api=https://hub.docker.com/v2/namespaces/library/repositories/${{ matrix.dist }}/tags
-          last_pushed=$(
-            curl -s $api | jq -cr '.results[]|select(.name=="${{ matrix.tag }}").images[]|select(.architecture=="amd64").last_pushed'
-          )
-          timestamp=$(date --date=$last_pushed "+%s")
-          printf '%s: %s (%s)\n' ${{ matrix.name }} $last_pushed $timestamp >&2
-          echo $timestamp > ${{ matrix.name }}.txt
+          api="https://hub.docker.com/v2/namespaces/library/repositories/${{ matrix.dist }}/tags?page=1&page_size=100"
+          while [[ $api != "null" ]]; do
+            echo "::group::${api#*\?}"
+            json=$(curl -s "$api")
+            tsv=$(jq -cr '.results[]|[.name,[.images[]|select(.architecture=="amd64").last_pushed][0]]|@tsv' <<< $json)
+            [[ -n $tsv ]] && {
+              sed -r 's/\t/ /g' <<< $tsv | while read -r name d; do
+                echo $name=$(date --date=$d "+%s") | tee -a ${{ matrix.dist }}.txt
+              done
+            }
+            echo ::endgroup::
+            api=$(jq -Mcr '.next' <<< $json)
+          done
         shell: bash
-      - name: Upload ${{ matrix.name }}.txt
+      - name: Upload ${{ matrix.dist }}.txt
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.name }}
-          path: ${{ matrix.name }}.txt
+          name: ${{ matrix.dist }}
+          path: ${{ matrix.dist }}.txt
           retention-days: 1
     strategy:
       matrix:
-        include:
-          - dist: debian
-            name: bullseye
-            tag: bullseye
-          - dist: debian
-            name: bookworm
-            tag: bookworm
-          - dist: ubuntu
-            name: focal
-            tag: 18.04
-          - dist: ubuntu
-            name: jammy
-            tag: jammy
-          - dist: ubuntu
-            name: lunar
-            tag: lunar
+        dist:
+          - debian
+          - ubuntu
   publish-if-outdated:
     if: ${{ needs.apt-fast.outputs.outdated-count != 0 }}
     name: Publish if outdated
