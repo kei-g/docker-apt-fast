@@ -21,7 +21,7 @@ jobs:
         run: |
           dockerhub=${{ needs.dockerhub.outputs.timestamp }}
           count=$(
-            for key in debian:bookworm debian:bullseye ubuntu:focal ubuntu:jammy ubuntu:lunar; do
+            for key in debian:bookworm debian:bullseye debian:trixie ubuntu:focal ubuntu:jammy ubuntu:lunar ubuntu:mantic ubuntu:noble; do
               dist=${key%%:*}
               name=${key##*:}
               matched=$(grep -P "^$name=" < $dist.txt)

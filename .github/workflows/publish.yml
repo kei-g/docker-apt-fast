@@ -70,12 +70,18 @@ jobs:
         include:
           - dist: debian
             name: bullseye
+          - dist: debian
+            name: trixie
           - dist: ubuntu
             name: focal
           - dist: ubuntu
             name: jammy
           - dist: ubuntu
             name: lunar
+          - dist: ubuntu
+            name: mantic
+          - dist: ubuntu
+            name: noble
 name: Publish
 on:
   workflow_call:
