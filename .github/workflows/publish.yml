@@ -77,10 +77,6 @@ jobs:
           - dist: ubuntu
             name: jammy
           - dist: ubuntu
-            name: lunar
-          - dist: ubuntu
-            name: mantic
-          - dist: ubuntu
             name: noble
 name: Publish
 on:
