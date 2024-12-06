@@ -1,8 +1,11 @@
 {
-  "version": "0.2",
-  "words": [
+  "allowCompoundWords": true,
+  "caseSensitive": false,
+  "userWords": [
     "buildx",
     "dockerhub",
-    "snowstep"
-  ]
+    "snowstep",
+    "trixie"
+  ],
+  "version": "0.2"
 }
