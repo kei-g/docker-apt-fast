@@ -76,7 +76,7 @@ jobs:
           done
         shell: bash
       - name: Upload ${{ matrix.dist }}.txt
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ matrix.dist }}
           path: ${{ matrix.dist }}.txt
