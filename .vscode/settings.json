@@ -1,4 +1,12 @@
 {
+  "cSpell.allowCompoundWords": true,
+  "cSpell.caseSensitive": false,
+  "cSpell.userWords": [
+    "buildx",
+    "dockerhub",
+    "snowstep",
+    "trixie",
+  ],
   "files.associations": {
     "**/LICENSE": "plaintext",
   },
