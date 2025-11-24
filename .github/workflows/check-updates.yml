@@ -5,96 +5,213 @@ jobs:
       - dockerhub
       - libraries
     outputs:
-      outdated-count: ${{ steps.newer.outputs.count }}
+      datetimes: ${{ toJSON(steps.datetimes.outputs) }}
+      outdated-count: ${{ steps.outdated-count.outputs.value }}
     runs-on: ubuntu-latest
     steps:
-      - name: Download debian
+      - name: Download debian datetimes
         uses: actions/download-artifact@v6
         with:
           name: debian
-      - name: Download ubuntu
+      - name: Download ubuntu datetimes
         uses: actions/download-artifact@v6
         with:
           name: ubuntu
-      - id: newer
-        name: Count how many libraries are newer than snowstep/apt-fast
+      - id: datetimes
+        name: Get libraries datetimes newer than snowstep/apt-fast
         run: |
-          dockerhub=${{ needs.dockerhub.outputs.timestamp }}
+          for key in debian:bookworm debian:bullseye debian:trixie ubuntu:focal ubuntu:jammy ubuntu:noble; do
+            distro=${key%%:*}
+            codename=${key##*:}
+            matched=$(grep -P "^$codename=" < $distro.txt)
+            datetime=${matched##*=}
+            version=$(grep -P ",$codename," < /usr/share/distro-info/$distro.csv | sed -r 's/(\s+[^,]*)?,.*$//')
+            dockerhub=$(
+              jq -Mcr ".\"$distro-$version\"" << _EOT_
+          ${{ needs.dockerhub.outputs.timestamp }}
+          _EOT_
+            )
+            [[ $dockerhub -lt $datetime ]] \
+              && {
+                echo "libraries/$distro-$version is newer than snowstep/apt-fast:$distro-$version-latest" >&2
+                echo $distro-$version=$datetime
+              } \
+              || {
+                echo "libraries/$distro-$version is not newer than snowstep/apt-fast:$distro-$version-latest" >&2
+              }
+          done >> $GITHUB_OUTPUT
+        shell: bash
+      - id: outdated-count
+        name: Count how many tags outdated
+        run: |
           count=$(
-            for key in debian:bookworm debian:bullseye debian:trixie ubuntu:focal ubuntu:jammy ubuntu:noble; do
-              dist=${key%%:*}
-              name=${key##*:}
-              matched=$(grep -P "^$name=" < $dist.txt)
-              timestamp=${matched##*=}
-              echo $name=$timestamp >&2
-              [[ $dockerhub -lt $timestamp ]] \
-                && { \
-                  echo "libraries/$name is newer than snowstep/apt-fast:$name" \
-                    | tee >(cat >&2); \
-                } \
-                || :
-            done | wc -l
+            jq -Mcr 'length' \
+              << _EOT_
+          ${{ toJSON(steps.datetimes.outputs) }}
+          _EOT_
           )
-          echo count=$count >&2
-          echo count=$count > $GITHUB_OUTPUT
+          echo value=$count >> $GITHUB_OUTPUT
         shell: bash
   dockerhub:
     name: See the latest snowstep/apt-fast on DockerHub
     outputs:
-      timestamp: ${{ steps.latest.outputs.timestamp }}
+      timestamp: ${{ toJSON(steps.latest.outputs) }}
     runs-on: ubuntu-latest
     steps:
       - id: latest
         name: Get the latest timestamp snowstep/apt-fast
         run: |
-          api=https://hub.docker.com/v2/namespaces/snowstep/repositories/apt-fast/tags
-          last_pushed=$(
-            curl -s $api | jq -cr '[.results[]|select(.name=="latest").images[]]|max_by(.last_pushed).last_pushed'
+          api="https://hub.docker.com/v2/namespaces/snowstep/repositories/apt-fast/tags?page=1&page_size=100"
+          declare -A digests
+          tags='[]'
+          while [[ $api != "null" ]]; do
+            json=$(curl -s "$api")
+            results=$(jq -Mcr '.results' <<< $json || :)
+            [[ -z $results ]] \
+              || tags=$(echo $tags $results | jq -Mcr --slurp add)
+            api=$(jq -Mcr '.next' <<< $json)
+          done
+          echo ::group::digests >&2
+          while read -r digest name; do
+            echo "$name=$digest" >&2
+            name=${name%-*}
+            digests[$name]=$digest
+          done < <(
+            jq -Mcr '.[]|select(.name|endswith("-latest"))|[.digest,.name]|@tsv' \
+              <<< $tags
           )
-          timestamp=$(date --date=$last_pushed "+%s")
-          printf 'apt-fast: %s (%s)\n' $last_pushed $timestamp >&2
-          printf 'timestamp=%s\n' $timestamp >> $GITHUB_OUTPUT
+          echo ::endgroup:: >&2
+          for name in ${!digests[@]}; do
+            digest=${digests[$name]}
+            jq -Mcr \
+              ".[]|select(.digest==\"$digest\")|select(.name|endswith(\"-latest\")|not).name" \
+              <<< $tags \
+              | while read -r name; do
+                echo ${name%-*}=${name##*-} >> $GITHUB_OUTPUT
+              done
+          done
         shell: bash
   libraries:
-    name: See ${{ matrix.dist }} on DockerHub
+    name: See ${{ matrix.distro }} on DockerHub
     runs-on: ubuntu-latest
     steps:
-      - name: Get timestamps of ${{ matrix.dist }}
+      - name: Get timestamps of ${{ matrix.distro }}
         run: |
-          api="https://hub.docker.com/v2/namespaces/library/repositories/${{ matrix.dist }}/tags?page=1&page_size=100"
+          api="https://hub.docker.com/v2/namespaces/library/repositories/${{ matrix.distro }}/tags?page=1&page_size=100"
           while [[ $api != "null" ]]; do
             echo "::group::${api#*\?}"
             json=$(curl -s "$api")
-            tsv=$(jq -cr '.results[]|[.name,[.images[]|select(.architecture=="amd64").last_pushed][0]]|@tsv' <<< $json)
-            [[ -n $tsv ]] && {
-              sed -r 's/\t/ /g' <<< $tsv | while read -r name d; do
-                echo $name=$(date --date=$d "+%s") | tee -a ${{ matrix.dist }}.txt
+            jq -Mcr '.results[]|[.name,[.images[]|select(.architecture=="amd64").last_pushed]]|flatten|@tsv' \
+              <<< $json \
+              | while read -r name last_pushed; do
+                echo $name=$(date --date="$last_pushed" '+%Y%m%d%H%M%S') \
+                  | tee -a ${{ matrix.distro }}.txt
               done
-            }
             echo ::endgroup::
             api=$(jq -Mcr '.next' <<< $json)
           done
         shell: bash
-      - name: Upload ${{ matrix.dist }}.txt
+      - name: Upload ${{ matrix.distro }} datetimes
         uses: actions/upload-artifact@v5
         with:
-          name: ${{ matrix.dist }}
-          path: ${{ matrix.dist }}.txt
+          name: ${{ matrix.distro }}
+          path: ${{ matrix.distro }}.txt
           retention-days: 1
     strategy:
       matrix:
-        dist:
+        distro:
           - debian
           - ubuntu
-  publish-if-outdated:
-    if: ${{ needs.apt-fast.outputs.outdated-count != 0 }}
-    name: Publish if outdated
+  patch:
+    if: ${{ needs.apt-fast.outputs.outdated-count > 0 }}
+    name: Patch the description to DockerHub
     needs:
       - apt-fast
+      - publish
     secrets:
       DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-    uses: ./.github/workflows/publish.yml
+    uses: ./.github/workflows/patch.yml
+  publish:
+    if: ${{ needs.apt-fast.outputs.outdated-count > 0 }}
+    name: Publish ${{ matrix.distro }}:${{ matrix.codename }}
+    needs:
+      - apt-fast
+    runs-on: ubuntu-latest
+    steps:
+      - id: version
+        name: Get the version number for ${{ matrix.distro }}:${{ matrix.codename }}
+        run: |
+          while IFS=',' read -r version _fullname codename _created; do
+            [[ $codename = "${{ matrix.codename }}" ]] \
+              && { \
+                echo value=${version%\ *} >> $GITHUB_OUTPUT
+                break
+              } \
+              || :
+          done < /usr/share/distro-info/${{ matrix.distro }}.csv
+        shell: bash
+      - id: datetime
+        name: Get datetime
+        run: |
+          datetime=$(
+            jq -Mcr ".\"${{ matrix.distro }}-${{ steps.version.outputs.value }}\"" \
+              << _EOT_
+          ${{ needs.apt-fast.outputs.datetimes }}
+          _EOT_ \
+              || echo 0
+          )
+          echo value=$datetime >> $GITHUB_OUTPUT
+        shell: bash
+      - if: ${{ steps.datetime.outputs.value > 0 }}
+        name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+      - if: ${{ steps.datetime.outputs.value > 0 }}
+        name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - if: ${{ steps.datetime.outputs.value > 0 }}
+        name: Copy Dockerfile
+        run: cp docker/linux/${{ matrix.codename }}/Dockerfile ./
+      - if: ${{ steps.datetime.outputs.value > 0 }}
+        name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+      - id: metadata
+        if: ${{ steps.datetime.outputs.value > 0 }}
+        name: Decide tags
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/apt-fast
+          tags: |
+            type=raw,value=${{ matrix.distro }}-${{ steps.version.outputs.value }}-latest
+            type=raw,value=${{ matrix.distro }}-${{ steps.version.outputs.value }}-${{ steps.datetime.outputs.value }}
+      - if: ${{ steps.datetime.outputs.value > 0 }}
+        name: Run Buildx and Push it to DockerHub
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.metadata.outputs.tags }}
+    strategy:
+      matrix:
+        include:
+          - codename: bookworm
+            distro: debian
+          - codename: bullseye
+            distro: debian
+          - codename: focal
+            distro: ubuntu
+          - codename: jammy
+            distro: ubuntu
+          - codename: noble
+            distro: ubuntu
+          - codename: trixie
+            distro: debian
 name: Check updates
 on:
   schedule:
