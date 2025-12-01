@@ -187,9 +187,9 @@ jobs:
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/apt-fast
           tags: |
+            type=raw,value=${{ matrix.codename }}
             type=raw,value=${{ matrix.distro }}-${{ steps.version.outputs.value }}-latest
             type=raw,value=${{ matrix.distro }}-${{ steps.version.outputs.value }}-${{ steps.datetime.outputs.value }}
-            type=raw,value=${{ matrix.codename }}
       - if: ${{ steps.datetime.outputs.value > 0 }}
         name: Run Buildx and Push it to DockerHub
         uses: docker/build-push-action@v6
