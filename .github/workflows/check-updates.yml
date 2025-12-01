@@ -128,10 +128,10 @@ jobs:
     needs:
       - apt-fast
       - publish
-    secrets:
-      DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+    secrets: inherit
     uses: ./.github/workflows/patch.yml
+    with:
+      DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
   publish:
     if: ${{ needs.apt-fast.outputs.outdated-count > 0 }}
     name: Publish ${{ matrix.distro }}:${{ matrix.codename }}
@@ -179,13 +179,13 @@ jobs:
         uses: docker/login-action@v3
         with:
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ vars.DOCKERHUB_USERNAME }}
       - id: metadata
         if: ${{ steps.datetime.outputs.value > 0 }}
         name: Decide tags
         uses: docker/metadata-action@v5
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/apt-fast
+          images: ${{ vars.DOCKERHUB_USERNAME }}/apt-fast
           tags: |
             type=raw,value=${{ matrix.codename }}
             type=raw,value=${{ matrix.distro }}-${{ steps.version.outputs.value }}-latest
