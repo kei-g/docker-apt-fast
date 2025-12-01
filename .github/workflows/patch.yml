@@ -13,16 +13,23 @@ jobs:
           description: Debian/Ubuntu with apt-fast installed.
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
           repo: apt-fast
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ inputs.DOCKERHUB_USERNAME }}
 name: Update the description on DockerHub
 on:
   push:
     paths:
       - README.md
   workflow_call:
+    inputs:
+      DOCKERHUB_USERNAME:
+        required: true
+        type: string
     secrets:
       DOCKERHUB_PASSWORD:
         required: true
-      DOCKERHUB_USERNAME:
-        required: true
   workflow_dispatch:
+    inputs:
+      DOCKERHUB_USERNAME:
+        description: Username
+        required: true
+        type: string
