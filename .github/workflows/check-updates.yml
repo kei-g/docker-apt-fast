@@ -134,28 +134,20 @@ jobs:
       DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
   publish:
     if: ${{ needs.apt-fast.outputs.outdated-count > 0 }}
-    name: Publish ${{ matrix.distro }}:${{ matrix.codename }}
+    name: Publish
     needs:
       - apt-fast
     runs-on: ubuntu-latest
     steps:
-      - id: version
-        name: Get the version number for ${{ matrix.distro }}:${{ matrix.codename }}
-        run: |
-          while IFS=',' read -r version _fullname codename _created; do
-            [[ $codename = "${{ matrix.codename }}" ]] \
-              && { \
-                echo value=${version%\ *} >> $GITHUB_OUTPUT
-                break
-              } \
-              || :
-          done < /usr/share/distro-info/${{ matrix.distro }}.csv
-        shell: bash
+      - id: distro
+        uses: kei-g/github/debian/resolve-distro@main
+        with:
+          codename: ${{ matrix.codename }}
       - id: datetime
         name: Get datetime
         run: |
           datetime=$(
-            jq -Mcr ".\"${{ matrix.distro }}-${{ steps.version.outputs.value }}\"" \
+            jq -Mcr ".\"${{ steps.distro.outputs.long-name }}\"" \
               << _EOT_
           ${{ needs.apt-fast.outputs.datetimes }}
           _EOT_ \
@@ -188,8 +180,8 @@ jobs:
           images: ${{ vars.DOCKERHUB_USERNAME }}/apt-fast
           tags: |
             type=raw,value=${{ matrix.codename }}
-            type=raw,value=${{ matrix.distro }}-${{ steps.version.outputs.value }}-latest
-            type=raw,value=${{ matrix.distro }}-${{ steps.version.outputs.value }}-${{ steps.datetime.outputs.value }}
+            type=raw,value=${{ steps.distro.outputs.long-name }}-latest
+            type=raw,value=${{ steps.distro.outputs.long-name }}-${{ steps.datetime.outputs.value }}
       - if: ${{ steps.datetime.outputs.value > 0 }}
         name: Run Buildx and Push it to DockerHub
         uses: docker/build-push-action@v6
@@ -200,19 +192,13 @@ jobs:
             ${{ steps.metadata.outputs.tags }}
     strategy:
       matrix:
-        include:
-          - codename: bookworm
-            distro: debian
-          - codename: bullseye
-            distro: debian
-          - codename: focal
-            distro: ubuntu
-          - codename: jammy
-            distro: ubuntu
-          - codename: noble
-            distro: ubuntu
-          - codename: trixie
-            distro: debian
+        codename:
+          - bookworm
+          - bullseye
+          - focal
+          - jammy
+          - noble
+          - trixie
 name: Check updates
 on:
   schedule:
