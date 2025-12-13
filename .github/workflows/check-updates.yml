@@ -10,11 +10,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download debian datetimes
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: debian
       - name: Download ubuntu datetimes
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: ubuntu
       - id: datetimes
