@@ -153,25 +153,25 @@ jobs:
           )
           echo value=$datetime | tee -a $GITHUB_OUTPUT
         shell: bash
-      - if: ${{ steps.datetime.outputs.value != null }}
+      - if: ${{ steps.datetime.outputs.value != 'null' }}
         name: Checkout
         uses: actions/checkout@v6
         with:
           fetch-depth: 1
-      - if: ${{ steps.datetime.outputs.value != null }}
+      - if: ${{ steps.datetime.outputs.value != 'null' }}
         name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
-      - if: ${{ steps.datetime.outputs.value != null }}
+      - if: ${{ steps.datetime.outputs.value != 'null' }}
         name: Copy Dockerfile
         run: cp docker/linux/${{ matrix.codename }}/Dockerfile ./
-      - if: ${{ steps.datetime.outputs.value != null }}
+      - if: ${{ steps.datetime.outputs.value != 'null' }}
         name: Login to DockerHub
         uses: docker/login-action@v3
         with:
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
           username: ${{ vars.DOCKERHUB_USERNAME }}
       - id: metadata
-        if: ${{ steps.datetime.outputs.value != null }}
+        if: ${{ steps.datetime.outputs.value != 'null' }}
         name: Decide tags
         uses: docker/metadata-action@v5
         with:
@@ -180,7 +180,7 @@ jobs:
             type=raw,value=${{ matrix.codename }}
             type=raw,value=${{ steps.distro.outputs.long-name }}-latest
             type=raw,value=${{ steps.distro.outputs.long-name }}-${{ steps.datetime.outputs.value }}
-      - if: ${{ steps.datetime.outputs.value != null }}
+      - if: ${{ steps.datetime.outputs.value != 'null' }}
         name: Run Buildx and Push it to DockerHub
         uses: docker/build-push-action@v6
         with:
