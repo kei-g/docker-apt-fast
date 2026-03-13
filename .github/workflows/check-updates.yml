@@ -160,7 +160,7 @@ jobs:
           fetch-depth: 1
       - if: ${{ steps.datetime.outputs.value != 'null' }}
         name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
       - if: ${{ steps.datetime.outputs.value != 'null' }}
         name: Copy Dockerfile
         run: cp docker/linux/${{ matrix.codename }}/Dockerfile ./
