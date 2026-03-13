@@ -182,7 +182,7 @@ jobs:
             type=raw,value=${{ steps.distro.outputs.long-name }}-${{ steps.datetime.outputs.value }}
       - if: ${{ steps.datetime.outputs.value != 'null' }}
         name: Run Buildx and Push it to DockerHub
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
