@@ -173,7 +173,7 @@ jobs:
       - id: metadata
         if: ${{ steps.datetime.outputs.value != 'null' }}
         name: Decide tags
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ vars.DOCKERHUB_USERNAME }}/apt-fast
           tags: |
