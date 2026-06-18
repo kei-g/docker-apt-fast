@@ -155,7 +155,7 @@ jobs:
         shell: bash
       - if: ${{ steps.datetime.outputs.value != 'null' }}
         name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
       - if: ${{ steps.datetime.outputs.value != 'null' }}
